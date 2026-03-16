@@ -106,6 +106,8 @@ from .transformer import (
     TransformerLayer,
 )
 
+from .attention import CoordAtt
+
 __all__ = (
     "AIFI",
     "C1",
@@ -187,4 +189,5 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
+    "CoordAtt",
 )

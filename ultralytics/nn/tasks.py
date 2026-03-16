@@ -1608,6 +1608,7 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
+            CoordAtt,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1627,6 +1628,7 @@ def parse_model(d, ch, verbose=True):
             C2fCIB,
             C2PSA,
             A2C2f,
+            CoordAtt,
         }
     )
     for i, (f, n, m, args) in enumerate(d["backbone"] + d["head"]):  # from, number, module, args
@@ -1649,6 +1651,9 @@ def parse_model(d, ch, verbose=True):
             if m is C2fAttn:  # set 1) embed channels and 2) num heads
                 args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
                 args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
+            # --- 修复逻辑 ---
+            if m in {CoordAtt}:
+                c2 = c1  # 强制输出通道等于输入通道，不接受缩放
 
             args = [c1, c2, *args[1:]]
             if m in repeat_modules:
