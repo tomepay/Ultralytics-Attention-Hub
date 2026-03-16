@@ -47,6 +47,7 @@ from ultralytics.nn.modules import (
     Detect,
     DWConv,
     DWConvTranspose2d,
+    EMA,
     Focus,
     GhostBottleneck,
     GhostConv,
@@ -1608,6 +1609,7 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
+            EMA,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments

@@ -106,6 +106,8 @@ from .transformer import (
     TransformerLayer,
 )
 
+from .attention import EMA
+
 __all__ = (
     "AIFI",
     "C1",
@@ -116,7 +118,8 @@ __all__ = (
     "CBAM",
     "CIB",
     "DFL",
-    "ELAN1",
+    "EMA",
+    "ELAN1",    
     "MLP",
     "OBB",
     "OBB26",
