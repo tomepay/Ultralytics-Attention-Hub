@@ -106,7 +106,16 @@ from .transformer import (
     TransformerLayer,
 )
 
-from .attention import CoordAtt
+from .attention import (
+    CoordAtt,
+    # CBAM,           # 准备好时取消注释
+    # EMA,
+    # ECA,
+    # SimAM,
+    # TripletAttention,
+    # ... 后续新增的注意力模块
+)
+
 
 __all__ = (
     "AIFI",
@@ -149,6 +158,7 @@ __all__ = (
     "Conv",
     "Conv2",
     "ConvTranspose",
+    "CoordAtt",
     "DWConv",
     "DWConvTranspose2d",
     "DeformableTransformerDecoder",
@@ -189,5 +199,4 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
-    "CoordAtt",
 )
