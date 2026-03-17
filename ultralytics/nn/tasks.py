@@ -44,6 +44,7 @@ from ultralytics.nn.modules import (
     Conv,
     Conv2,
     ConvTranspose,
+    CoordAtt,
     Detect,
     DWConv,
     DWConvTranspose2d,
@@ -72,7 +73,6 @@ from ultralytics.nn.modules import (
     YOLOESegment,
     YOLOESegment26,
     v10Detect,
-    CoordAtt,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1551,6 +1551,14 @@ def parse_model(d, ch, verbose=True):
     """
     import ast
 
+    channel_preserved_modules = frozenset({
+        CoordAtt,
+        # EMA,                  # EMA attention (待添加)
+        # CBAM,                 # Convolutional Block Attention Module
+        # SimAM,                # Similarity-based Attention Module
+        # ECA,                  # Efficient Channel Attention    
+    })
+
     # Args
     legacy = True  # backward compatibility for v3/v5/v8/v9 models
     max_channels = float("inf")
@@ -1578,6 +1586,7 @@ def parse_model(d, ch, verbose=True):
             Classify,
             Conv,
             ConvTranspose,
+            CoordAtt,
             GhostConv,
             Bottleneck,
             GhostBottleneck,
@@ -1609,7 +1618,6 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
-            CoordAtt,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1652,7 +1660,7 @@ def parse_model(d, ch, verbose=True):
                 args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
                 args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
             # --- 修复逻辑 ---
-            if m in {CoordAtt}:
+            if m in channel_preserved_modules:
                 c2 = c1  # 强制输出通道等于输入通道，不接受缩放
 
             args = [c1, c2, *args[1:]]
