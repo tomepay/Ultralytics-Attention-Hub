@@ -3,3 +3,5 @@
 Attention mechanisms collection.
 Contains various attention modules like CoordAtt, CBAM, EMA, etc.
 """
+
+from .coordatt import CoordAtt
