@@ -1662,6 +1662,9 @@ def parse_model(d, ch, verbose=True):
             # --- 修复逻辑 ---
             if m in channel_preserved_modules:
                 c2 = c1  # 强制输出通道等于输入通道，不接受缩放
+                # 核心防错：即使 YAML 写了 []，也要给 args 补一个值，防止后面 args[0] 越界
+                if not args:
+                    args = [c2]
 
             args = [c1, c2, *args[1:]]
             if m in repeat_modules:
