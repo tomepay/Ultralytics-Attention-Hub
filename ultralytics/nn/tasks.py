@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
+
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
@@ -32,6 +33,7 @@ from ultralytics.nn.modules import (
     BottleneckCSP,
     C2f,
     C2fAttn,
+    C2fCA,
     C2fCIB,
     C2fPSA,
     C3Ghost,
@@ -1600,6 +1602,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+            C2fCA,
             C3k2,
             RepNCSPELAN4,
             ELAN1,
@@ -1626,6 +1629,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+            C2fCA,
             C3k2,
             C2fAttn,
             C3,
@@ -1659,10 +1663,11 @@ def parse_model(d, ch, verbose=True):
             if m is C2fAttn:  # set 1) embed channels and 2) num heads
                 args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
                 args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
-            # --- 修复逻辑 ---
+            
+            # --- 精确修复逻辑 ---
             if m in channel_preserved_modules:
-                c2 = c1  # 强制输出通道等于输入通道，不接受缩放
-
+                c2 = c1          
+                
             args = [c1, c2, *args[1:]]
             if m in repeat_modules:
                 args.insert(2, n)  # number of repeats

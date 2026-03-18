@@ -15,6 +15,7 @@ from .transformer import TransformerBlock
 __all__ = (
     "C1",
     "C2",
+    "C2fCA",
     "C2PSA",
     "C3",
     "C3TR",
@@ -40,6 +41,7 @@ __all__ = (
     "C3x",
     "CBFuse",
     "CBLinear",
+    "CoordAtt",
     "ContrastiveHead",
     "GhostBottleneck",
     "HGBlock",
@@ -2065,3 +2067,64 @@ class RealNVP(nn.Module):
             self.float()
         z, log_det = self.backward_p(x)
         return self.prior.log_prob(z) + log_det
+
+
+# 添加CA模块
+
+class CoordAtt(nn.Module):
+    """Coordinate Attention Module.
+    Ref: https://arxiv.org/abs/2103.02907
+    """
+    def __init__(self, inp: int, oup: int, reduction: int = 32):
+        super().__init__()
+        mip = max(8, inp // reduction)
+
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+
+        # conv1 使用裸 nn.Conv2d（避免双BN，最清晰的方案）
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0, bias=False)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.SiLU()
+
+        # conv_h / conv_w 使用官方 Conv，支持 fuse
+        self.conv_h = Conv(mip, oup, k=1, act=False)
+        self.conv_w = Conv(mip, oup, k=1, act=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        identity = x
+        _, _, h, w = x.shape
+
+        x_h = self.pool_h(x)
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)
+
+        y = torch.cat([x_h, x_w], dim=2)
+        y = self.act(self.bn1(self.conv1(y)))
+
+        # 安全拆分 + 连续内存
+        x_h = y[:, :, :h, :]
+        x_w = y[:, :, h:, :].permute(0, 1, 3, 2).contiguous()
+
+        a_h = self.conv_h(x_h).sigmoid()
+        a_w = self.conv_w(x_w).sigmoid()
+
+        return identity * a_w * a_h
+
+
+class C2fCA(nn.Module):
+    """C2f module with Coordinate Attention (CA) integration."""
+    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5):
+        super().__init__()
+        self.c = int(c2 * e)
+        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv2 = Conv((2 + n) * self.c, c2, 1)
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
+        self.att = CoordAtt(c2, c2)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = list(self.cv1(x).chunk(2, 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.att(self.cv2(torch.cat(y, 1)))

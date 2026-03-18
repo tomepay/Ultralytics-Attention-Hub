@@ -20,7 +20,8 @@ Examples:
 from .block import (
     C1,
     C2,
-    C2PSA,
+    C2fCA,
+    C2PSA,    
     C3,
     C3TR,
     CIB,
@@ -46,6 +47,7 @@ from .block import (
     C3x,
     CBFuse,
     CBLinear,
+    CoordAtt,
     ContrastiveHead,
     GhostBottleneck,
     HGBlock,
@@ -106,7 +108,6 @@ from .transformer import (
     TransformerLayer,
 )
 
-from .attention import CoordAtt
 
 __all__ = (
     "AIFI",
@@ -135,6 +136,7 @@ __all__ = (
     "BottleneckCSP",
     "C2f",
     "C2fAttn",
+    "C2fCA",
     "C2fCIB",
     "C2fPSA",
     "C3Ghost",
@@ -148,6 +150,7 @@ __all__ = (
     "ContrastiveHead",
     "Conv",
     "Conv2",
+    "CoordAtt",
     "ConvTranspose",
     "DWConv",
     "DWConvTranspose2d",
@@ -189,5 +192,4 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
-    "CoordAtt",
 )
