@@ -2071,65 +2071,106 @@ class RealNVP(nn.Module):
 
 # 添加CA模块
 
-class CoordAtt(nn.Module):
-    """Coordinate Attention (CA) - 原论文实现，轻量级坐标注意力"""
-    def __init__(self, c1, reduction=32):
-        super().__init__()
-        mip = max(8, c1 // reduction)  # 中间通道数
 
+
+class h_sigmoid(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_sigmoid, self).__init__()
+        self.relu = nn.ReLU6(inplace=inplace)
+
+    def forward(self, x):
+        return self.relu(x + 3) / 6
+
+
+class h_swish(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_swish, self).__init__()
+        self.sigmoid = h_sigmoid(inplace=inplace)
+
+    def forward(self, x):
+        return x * self.sigmoid(x)
+
+
+class CoordAtt(nn.Module):
+    def __init__(self, inp, oup, reduction=32):
+        super(CoordAtt, self).__init__()
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
-
-        self.conv1 = nn.Conv2d(c1, mip, kernel_size=1, stride=1, padding=0)
+        mip = max(8, inp // reduction)
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(mip)
-        self.act = nn.SiLU(inplace=True)  # 改为 SiLU，与现代 YOLO 一致
-
-        self.conv_h = nn.Conv2d(mip, c1, kernel_size=1, stride=1, padding=0)
-        self.conv_w = nn.Conv2d(mip, c1, kernel_size=1, stride=1, padding=0)
+        self.act = h_swish()
+        self.conv_h = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         identity = x
         n, c, h, w = x.size()
-
+        # c*1*W
         x_h = self.pool_h(x)
+        # c*H*1
+        # C*1*h
         x_w = self.pool_w(x).permute(0, 1, 3, 2)
-
         y = torch.cat([x_h, x_w], dim=2)
+        # C*1*(h+w)
         y = self.conv1(y)
         y = self.bn1(y)
         y = self.act(y)
-
         x_h, x_w = torch.split(y, [h, w], dim=2)
-        x_h = self.conv_h(x_h).sigmoid()
-        x_w = self.conv_w(x_w.permute(0, 1, 3, 2)).sigmoid()
-
-        out = identity * x_h * x_w
+        x_w = x_w.permute(0, 1, 3, 2)
+        a_h = self.conv_h(x_h).sigmoid()
+        a_w = self.conv_w(x_w).sigmoid()
+        out = identity * a_w * a_h
         return out
 
 
-class BottleneckCA(Bottleneck):
-    """Bottleneck with Coordinate Attention (后置注意力，最主流融合方式)"""
-    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=1.0, reduction=32):
-        super().__init__(c1, c2, shortcut, g, k, e)
-        self.att = CoordAtt(c2, reduction)  # 加在 Bottleneck 输出后
+
+class h_sigmoid(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_sigmoid, self).__init__()
+        self.relu = nn.ReLU6(inplace=inplace)
 
     def forward(self, x):
-        """标准残差 + CA： x + att( cv2(cv1(x)) )"""
-        y = self.cv2(self.cv1(x))           # 完整 Bottleneck 变换
-        out = self.att(y)
-        return x + out if self.add else out  # 显式写，更易读
+        return self.relu(x + 3) / 6
 
 
-class C2fCA(C2f):
-    """C2f with Coordinate Attention - 替换原 C2f，最推荐的 CA 融合方式"""
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5, reduction=32):
-        super().__init__(c1, c2, n, shortcut, g, e)
-        # 用 self.c（父类已计算好的隐藏通道）替换 int(c2 * e)，更安全
-        self.m = nn.ModuleList(
-            BottleneckCA(
-                self.c, self.c, shortcut=shortcut, g=g,
-                k=((3, 3), (3, 3)),  # 与官方 Bottleneck 默认一致
-                e=1.0,               # Bottleneck 内部扩展比默认 1.0
-                reduction=reduction
-            ) for _ in range(n)
-        )
+class h_swish(nn.Module):
+    def __init__(self, inplace=True):
+        super(h_swish, self).__init__()
+        self.sigmoid = h_sigmoid(inplace=inplace)
+
+    def forward(self, x):
+        return x * self.sigmoid(x)
+
+
+class CoordAtt(nn.Module):
+    def __init__(self, inp, oup, reduction=32):
+        super(CoordAtt, self).__init__()
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+        mip = max(8, inp // reduction)
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = h_swish()
+        self.conv_h = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x):
+        identity = x
+        n, c, h, w = x.size()
+        # c*1*W
+        x_h = self.pool_h(x)
+        # c*H*1
+        # C*1*h
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)
+        y = torch.cat([x_h, x_w], dim=2)
+        # C*1*(h+w)
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.act(y)
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        x_w = x_w.permute(0, 1, 3, 2)
+        a_h = self.conv_h(x_h).sigmoid()
+        a_w = self.conv_w(x_w).sigmoid()
+        out = identity * a_w * a_h
+        return out
