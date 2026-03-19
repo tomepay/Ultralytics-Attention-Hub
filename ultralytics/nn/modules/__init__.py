@@ -20,7 +20,6 @@ Examples:
 from .block import (
     C1,
     C2,
-    C2fCA,
     C2PSA,    
     C3,
     C3TR,
@@ -138,7 +137,6 @@ __all__ = (
     "BottleneckCSP",
     "C2f",
     "C2fAttn",
-    "C2fCA",
     "C2fCIB",
     "C2fPSA",
     "C3Ghost",
