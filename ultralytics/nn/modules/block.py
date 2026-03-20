@@ -2095,7 +2095,7 @@ class C3k2CA(C3k2):
 
         if reduction > 0:
             self.m = nn.ModuleList(
-                BottleneckCA(
+                Bottleneck(
                     hidden,           # 使用 make_divisible 后的值
                     hidden,
                     shortcut=shortcut,
