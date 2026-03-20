@@ -2071,6 +2071,55 @@ class RealNVP(nn.Module):
 # 添加CA模块
 
 
+class CoordAtt(nn.Module):
+    """Coordinate Attention (CA) - 原论文实现，轻量级坐标注意力"""
+    def __init__(self, c1, reduction=32):
+        super().__init__()
+        mip = max(8, c1 // reduction)  # 中间通道数
+
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+
+        self.conv1 = nn.Conv2d(c1, mip, kernel_size=1, stride=1, padding=0)
+        self.bn1 = nn.BatchNorm2d(mip)
+        self.act = nn.SiLU(inplace=True)  # 改为 SiLU，与现代 YOLO 一致
+
+        self.conv_h = nn.Conv2d(mip, c1, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, c1, kernel_size=1, stride=1, padding=0)
+
+    def forward(self, x):
+        identity = x
+        n, c, h, w = x.size()
+
+        x_h = self.pool_h(x)
+        x_w = self.pool_w(x).permute(0, 1, 3, 2)
+
+        y = torch.cat([x_h, x_w], dim=2)
+        y = self.conv1(y)
+        y = self.bn1(y)
+        y = self.act(y)
+
+        x_h, x_w = torch.split(y, [h, w], dim=2)
+        x_h = self.conv_h(x_h).sigmoid()
+        x_w = self.conv_w(x_w.permute(0, 1, 3, 2)).sigmoid()
+
+        out = identity * x_h * x_w
+        return out
+
+
+class BottleneckCA(Bottleneck):
+    """Bottleneck with Coordinate Attention (后置注意力，最主流融合方式)"""
+    def __init__(self, c1, c2, shortcut=True, g=1, k=(3, 3), e=1.0, reduction=32):
+        super().__init__(c1, c2, shortcut, g, k, e)
+        self.att = CoordAtt(c2, reduction)  # 加在 Bottleneck 输出后
+
+    def forward(self, x):
+        """标准残差 + CA： x + att( cv2(cv1(x)) )"""
+        y = self.cv2(self.cv1(x))           # 完整 Bottleneck 变换
+        out = self.att(y)
+        return x + out if self.add else out  # 显式写，更易读
+
+
 class C3k2CA(C3k2):
     """C3k2 with Coordinate Attention - 兼容官方所有参数 + 完美通道对齐"""
     def __init__(
@@ -2094,7 +2143,7 @@ class C3k2CA(C3k2):
 
         if reduction > 0:
             self.m = nn.ModuleList(
-                Bottleneck(
+                BottleneckCA(
                     hidden,           # 使用 make_divisible 后的值
                     hidden,
                     shortcut=shortcut,
