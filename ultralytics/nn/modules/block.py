@@ -30,7 +30,6 @@ __all__ = (
     "Attention",
     "BNContrastiveHead",
     "Bottleneck",
-    "BottleneckCA",
     "BottleneckCSP",
     "C2f",
     "C2fAttn",

@@ -1590,7 +1590,6 @@ def parse_model(d, ch, verbose=True):
             ConvTranspose,
             GhostConv,
             Bottleneck,
-            BottleneckCA,
             GhostBottleneck,
             SPP,
             SPPF,
