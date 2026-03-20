@@ -38,6 +38,7 @@ from ultralytics.nn.modules import (
     C2fPSA,
     C3Ghost,
     C3k2,
+    C3k2CA,
     C3x,
     CBFuse,
     CBLinear,
@@ -46,7 +47,6 @@ from ultralytics.nn.modules import (
     Conv,
     Conv2,
     ConvTranspose,
-    CoordAtt,
     Detect,
     DWConv,
     DWConvTranspose2d,
@@ -1588,7 +1588,6 @@ def parse_model(d, ch, verbose=True):
             Classify,
             Conv,
             ConvTranspose,
-            CoordAtt,
             GhostConv,
             Bottleneck,
             BottleneckCA,
@@ -1604,6 +1603,7 @@ def parse_model(d, ch, verbose=True):
             C2,
             C2f,
             C3k2,
+            C3k2CA,
             RepNCSPELAN4,
             ELAN1,
             ADown,
@@ -1630,6 +1630,7 @@ def parse_model(d, ch, verbose=True):
             C2,
             C2f,
             C3k2,
+            C3k2CA,
             C2fAttn,
             C3,
             C3TR,
@@ -1662,7 +1663,11 @@ def parse_model(d, ch, verbose=True):
             if m is C2fAttn:  # set 1) embed channels and 2) num heads
                 args[1] = make_divisible(min(args[1], max_channels // 2) * width, 8)
                 args[2] = int(max(round(min(args[2], max_channels // 2 // 32)) * width, 1) if args[2] > 1 else args[2])
-            
+            # 新增：C3k2 / C3k2CA 的 c3k 参数处理（与官方一致）
+            if m in {C3k2, C3k2CA}:
+                # 支持 YAML 写 [c2, shortcut, c3k, e, attn, g, ...]
+                # 但通常用户只写 [c2, shortcut]，c3k/e/attn 用默认
+                pass  # 官方 parse_model 已处理好 args[3:]，无需额外 pop
                                            
             # --- 精确修复逻辑 ---
             if m in channel_preserved_modules:
